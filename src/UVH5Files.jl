@@ -5,24 +5,19 @@ using DataFrames
 
 export UVH5File, corrcoeff, loadbaseline
 
+include("BLTData.jl")
+include("BLTIndices.jl")
+include("Vis.jl")
+
 struct UVH5File
     h5::HDF5.File
-    all::DataFrame
-    autos::GroupedDataFrame
-    crosses::GroupedDataFrame
+    blts::BLTIndices
+    vis::Vis
 
     function UVH5File(h5::HDF5.File)
-        h5h = h5["Header"]
-        # Get all baseline-time tuples
-        a1s = h5h["ant_1_array"][]
-        a2s = h5h["ant_2_array"][]
-        jds = h5h["time_array"][]
-
-        all = [(; a1, a2, jd, idx) for (idx, (a1, a2, jd)) in enumerate(zip(a1s, a2s, jds))] |> DataFrame;
-        autos   = groupby(subset(all, [:a1,:a2]=>ByRow((a1,a2)->a1==a2), view=true), :jd)
-        crosses = groupby(subset(all, [:a1,:a2]=>ByRow((a1,a2)->a1!=a2), view=true), :jd)
-
-        new(h5, all, autos, crosses)
+        blts = BLTIndices(h5)
+        vis = Vis(h5, blts)
+        new(h5, blts, vis)
     end
 end
 
@@ -34,117 +29,21 @@ function UVH5File(h5name::AbstractString)
     UVH5File(h5open(h5name))
 end
 
-import Base.close
-function close(uv::UVH5File)
+function Base.show(io::IO, uv::UVH5File)
+    blts = uv.blts
+    nants = length(ants(blts))
+    nautos = nrow(parent(blts.autos))
+    ncross = nrow(parent(blts.crosses))
+    ntautos = length(blts.autos)
+    ntcross = length(blts.crosses)
+    print(io, "UVH5File($(basename(HDF5.filename(uv.h5))): $nants ants, $nautos autos/$ntautos times, $ncross crosses/$ntcross times)")
+end
+
+function Base.close(uv::UVH5File)
     close(uv.h5)
 end
 
-function ants(uv::UVH5File)
-    sort(uv.all.a1 ∪ uv.all.a2)
-end
-
-import Base.==
-function ==(a::UVH5File, b::UVH5File)
-    a.all == b.all
-end
-
-function Base.show(io::IO, uv::UVH5File)
-    nants = length(ants(uv))
-    nautos = nrow(parent(uv.autos))
-    ncross = nrow(parent(uv.crosses))
-    ntautos = length(uv.autos)
-    ntcross = length(uv.crosses)
-    print(io, "UVH5File($nants ants: $nautos autos/$ntautos times, $ncross crosses/$ntcross times)")
-end
-
-# uv[Integer, Integer, Integer]
-
-function Base.haskey(uv::UVH5File, a1::Integer, a2::Integer, tidx::Integer)
-    gdf  = (a1 == a2) ? uv.autos : uv.crosses
-    tidx in axes(gdf, 1) || return false
-    any(gdf[tidx].a1 .== a1 .&& gdf[tidx].a2 .== a2)
-end
-
-function Base.getindex(uv::UVH5File, a1::Integer, a2::Integer, tidx::Integer)
-    sdf = (a1 == a2) ? uv.autos[tidx] : uv.crosses[tidx]
-    sdf.idx[sdf.a1.==a1 .&& sdf.a2.==a2]
-end
-
-# uv[Integer, Integer, AbstractFloat]
-
-function Base.haskey(uv::UVH5File, a1::Integer, a2::Integer, jd::AbstractFloat)
-    gdf  = (a1 == a2) ? uv.autos : uv.crosses
-    haskey(gdf, (jd,)) || return false
-    any(gdf[(jd,)].a1 .== a1 .&& gdf[(jd,)].a2 .== a2)
-end
-
-function Base.getindex(uv::UVH5File, a1::Integer, a2::Integer, jd::AbstractFloat)
-    sdf = (a1 == a2) ? uv.autos[(jd,)] : uv.crosses[(jd,)]
-    sdf.idx[sdf.a1.==a1 .&& sdf.a2.==a2]
-end
-
-# uv[Integer, Integer]
-# uv[Integer, Integer, :]
-
-function Base.haskey(uv::UVH5File, a1::Integer, a2::Integer, _::Colon=:)
-    df = uv.all
-    any(df.a1 .== a1 .&& df.a2 .== a2)
-end
-
-function Base.getindex(uv::UVH5File, a1::Integer, a2::Integer, _::Colon=:)
-    df = uv.all
-    df.idx[df.a1.==a1 .&& df.a2.==a2]
-end
-
-# uv[:, :, Integer]
-
-function Base.haskey(uv::UVH5File, _::Colon, _::Colon, tidx::Integer)
-    tidx in axes(unique(uv.all.jds), 1)
-end
-
-function Base.getindex(uv::UVH5File, _::Colon, _::Colon, tidx::Integer)
-    # It is possible for autos and crosses to have a different number of time
-    # samples, so we have to bounds check tidx against both.
-    gdfa = uv.autos
-    idxa = tidx in axes(gdfa, 1) ? gdfa.idx : []
-    gdfc = uv.crosses
-    idxc = tidx in axes(gdfc, 1) ? gdfc.idx : []
-    sort(vcat(idxa, idxc))
-end
-
-# uv[:, :, AbstractFloat]
-
-function Base.haskey(uv::UVH5File, _::Colon, _::Colon, jd::AbstractFloat)
-    jd in unique(uv.all.jds)
-end
-
-function Base.getindex(uv::UVH5File, _::Colon, _::Colon, jd::AbstractFloat)
-    df = uv.all
-    df.idx[df.jd .== jd]
-end
-
-# uv[Integer] - All baseline-time indices involving given ant as a1 or a2
-# uv[Integer, :]
-
-function Base.haskey(uv::UVH5File, a::Integer, _::Colon=:)
-    df = uv.all
-    any(df.a1 .== a .|| df.a2 .== a)
-end
-
-function Base.getindex(uv::UVH5File, a::Integer, _::Colon=:)
-    df = uv.all
-    df.idx[df.a1.==a .|| df.a2.==a]
-end
-
-# uv[:, Integer] - All auto-correlation baseline-time indices for given time index
-
-function Base.haskey(uv::UVH5File, _::Colon, tidx::Integer)
-    haskey(uv.autos, tidx)
-end
-
-function Base.getindex(uv::UVH5File, _::Colon, tidx::Integer)
-    uv.autos[tidx].idx
-end
+# Stuff below here probably belongs elsewhere...
 
 # Load baseline method
 
