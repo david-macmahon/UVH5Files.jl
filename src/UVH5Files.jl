@@ -21,7 +21,8 @@ struct UVH5File
     end
 end
 
-function UVH5File(h5obj::Union{HDF5.Attribute, HDF5.Dataset, HDF5.Datatype, HDF5.Group})
+function UVH5File(h5obj::Union{HDF5.Attribute, HDF5.Dataset,
+                               HDF5.Datatype, HDF5.Group})
     UVH5File(HDF5.file(h5obj))
 end
 
@@ -36,7 +37,9 @@ function Base.show(io::IO, uv::UVH5File)
     ncross = nrow(parent(blts.crosses))
     ntautos = length(blts.autos)
     ntcross = length(blts.crosses)
-    print(io, "UVH5File($(basename(HDF5.filename(uv.h5))): $nants ants, $nautos autos/$ntautos times, $ncross crosses/$ntcross times)")
+    print(io, "UVH5File($(basename(HDF5.filename(uv.h5))): " *
+              "$nants ants, $nautos autos/$ntautos times, " *
+              "$ncross crosses/$ntcross times)")
 end
 
 function Base.close(uv::UVH5File)
