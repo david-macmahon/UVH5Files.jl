@@ -46,8 +46,10 @@ function Base.close(uv::UVH5File)
     close(uv.h5)
 end
 
-# Stuff below here probably belongs elsewhere...
+# Stuff below here probably belongs elsewhere
+# (and is now broken due to API changes)...
 
+#=
 # Load baseline method
 
 function loadbaselines(vis::HDF5.Dataset, idxs::AbstractArray{<:Integer})
@@ -119,5 +121,6 @@ end
 function corrcoeff(h5::HDF5.File, uv::UVH5File, refant::Integer)
     corrcoeff(h5["Data/visdata"], uv, refant)
 end
+=#
 
 end # module UVH5Files
