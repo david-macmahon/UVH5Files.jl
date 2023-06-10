@@ -3,14 +3,12 @@ struct BLTIndices
     autos::GroupedDataFrame
     crosses::GroupedDataFrame
 
-    function BLTIndices(h5::HDF5.File)
-        h5h = h5["Header"]
-        # Get all baseline-time tuples
-        a1s = h5h["ant_1_array"][]
-        a2s = h5h["ant_2_array"][]
-        jds = h5h["time_array"][]
-
+    function BLTIndices(a1s::AbstractVector{<:Integer},
+                        a2s::AbstractVector{<:Integer},
+                        jds::AbstractVector{Float64})
+        # Get all baseline-time-idx named tuples
         all = [(; a1, a2, jd, idx) for (idx, (a1, a2, jd)) in enumerate(zip(a1s, a2s, jds))] |> DataFrame;
+        # Group auto and cross subsets by JD
         autos   = groupby(subset(all, [:a1,:a2]=>ByRow((a1,a2)->a1==a2), view=true), :jd)
         crosses = groupby(subset(all, [:a1,:a2]=>ByRow((a1,a2)->a1!=a2), view=true), :jd)
 

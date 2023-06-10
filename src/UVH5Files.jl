@@ -12,6 +12,7 @@ include("Vis.jl")
 struct UVH5File
     h5::HDF5.File
     blts::BLTIndices
+    vis::Vis
 
     cache::Dict{String, Union{HDF5.Attribute, HDF5.Dataset,
                               HDF5.Datatype, HDF5.Group}}
@@ -19,8 +20,16 @@ struct UVH5File
     function UVH5File(h5::HDF5.File)
         cache = Dict{String, Union{HDF5.Attribute, HDF5.Dataset,
                                    HDF5.Datatype, HDF5.Group}}()
-        blts = BLTIndices(h5)
-        new(h5, blts, cache)
+        
+        a1s = cache["/Header/ant_1_array"] = h5["/Header/ant_1_array"]
+        a2s = cache["/Header/ant_2_array"] = h5["/Header/ant_2_array"]
+        jds = cache["/Header/time_array"] = h5["/Header/time_array"]
+        blts = BLTIndices(a1s[], a2s[], jds[])
+
+        v = cache["/Data/visdata"] = h5["/Data/visdata"]
+        vis = Vis(v, blts)
+        
+        new(h5, blts, vis, cache)
     end
 end
 
@@ -51,12 +60,10 @@ function Base.close(uv::UVH5File)
     close(uv.h5)
 end
 
-function getindex(uv::UVH5File, key::String)
+function getindex(uv::UVH5File, key::AbstractString)
+    # Ensure key is a String that starts with "/"
+    key = startswith(key, "/") ? string(key) : ("/" * key)
     get!(uv.cache, key, uv.h5[key])
-end
-
-function getindex(uv::UVH5File, key::Union{AbstractString,Symbol})
-    getindex(uv, string(key))
 end
 
 # Stuff below here probably belongs elsewhere
