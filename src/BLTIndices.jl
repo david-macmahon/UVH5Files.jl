@@ -38,6 +38,12 @@ function Base.show(io::IO, blts::BLTIndices)
     print(io, "BLTIndices($nants ants, $nautos autos/$ntautos times, $ncross crosses/$ntcross times)")
 end
 
+# blts[[idxs...]]
+
+function Base.getindex(blts::BLTIndices, bltidxs::AbstractArray)
+    blts.all[bltidxs, :]
+end
+
 # blts[Integer, Integer, Integer]
 
 function Base.haskey(blts::BLTIndices, a1::Integer, a2::Integer, tidx::Integer)
