@@ -12,12 +12,15 @@ include("Vis.jl")
 struct UVH5File
     h5::HDF5.File
     blts::BLTIndices
-    vis::Vis
+
+    cache::Dict{String, Union{HDF5.Attribute, HDF5.Dataset,
+                              HDF5.Datatype, HDF5.Group}}
 
     function UVH5File(h5::HDF5.File)
+        cache = Dict{String, Union{HDF5.Attribute, HDF5.Dataset,
+                                   HDF5.Datatype, HDF5.Group}}()
         blts = BLTIndices(h5)
-        vis = Vis(h5, blts)
-        new(h5, blts, vis)
+        new(h5, blts, cache)
     end
 end
 
@@ -43,7 +46,17 @@ function Base.show(io::IO, uv::UVH5File)
 end
 
 function Base.close(uv::UVH5File)
+    foreach(close, values(uv.cache))
+    empty!(uv.cache)
     close(uv.h5)
+end
+
+function getindex(uv::UVH5File, key::String)
+    get!(uv.cache, key, uv.h5[key])
+end
+
+function getindex(uv::UVH5File, key::Union{AbstractString,Symbol})
+    getindex(uv, string(key))
 end
 
 # Stuff below here probably belongs elsewhere
