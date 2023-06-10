@@ -2,6 +2,7 @@ module UVH5Files
 
 using HDF5
 using DataFrames
+import Base: getindex, haskey
 
 export UVH5File, ants #corrcoeff, loadbaseline
 
