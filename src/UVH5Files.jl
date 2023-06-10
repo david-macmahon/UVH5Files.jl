@@ -10,7 +10,7 @@ include("BLTData.jl")
 include("BLTIndices.jl")
 include("Vis.jl")
 
-struct UVH5File
+struct UVH5File <: BLTData
     h5::HDF5.File
     blts::BLTIndices
     vis::Vis
@@ -65,6 +65,16 @@ function getindex(uv::UVH5File, key::AbstractString)
     # Ensure key is a String that starts with "/"
     key = startswith(key, "/") ? string(key) : ("/" * key)
     get!(uv.cache, key, uv.h5[key])
+end
+
+# We are a BLTData subtype so we have to implement `bltindices`
+function bltindices(uv::UVH5File)
+    uv.blts
+end
+
+# The BLTData getindex methods will eventually call this, if needed
+function getindex(uv::UVH5File, bltidxs::AbstractArray)
+    uv.blts[bltidxs]
 end
 
 function ants(uv::UVH5File)
