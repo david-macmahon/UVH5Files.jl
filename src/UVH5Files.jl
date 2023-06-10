@@ -3,7 +3,7 @@ module UVH5Files
 using HDF5
 using DataFrames
 
-export UVH5File, corrcoeff, loadbaseline
+export UVH5File, ants #corrcoeff, loadbaseline
 
 include("BLTData.jl")
 include("BLTIndices.jl")
@@ -64,6 +64,10 @@ function getindex(uv::UVH5File, key::AbstractString)
     # Ensure key is a String that starts with "/"
     key = startswith(key, "/") ? string(key) : ("/" * key)
     get!(uv.cache, key, uv.h5[key])
+end
+
+function ants(uv::UVH5File)
+    ants(uv.blts)
 end
 
 # Stuff below here probably belongs elsewhere
