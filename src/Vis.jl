@@ -10,5 +10,8 @@ end
 
 # The BLTData getindex methods will eventually call this, if needed
 function getindex(v::Vis, bltidxs::AbstractArray)
-    mapreduce(i->v.vis[:,:,i], (a,b)->cat(a,b,dims=3), bltidxs)
+    (
+        v.blts[bltidxs],
+        mapreduce(i->v.vis[:,:,i], (a,b)->cat(a,b,dims=3), bltidxs)
+    )
 end
